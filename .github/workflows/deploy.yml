@@ -11,6 +11,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    defaults:
+      run:
+        working-directory: onboarding-project
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -22,7 +25,7 @@ jobs:
         with:
           node-version: '18'
           cache: 'npm'
-          cache-dependency-path: '**/package-lock.json'
+          cache-dependency-path: 'onboarding-project/package-lock.json'
 
       - name: Debug Info
         run: |
@@ -33,32 +36,18 @@ jobs:
           echo "NPM version: $(npm -v)"
 
       - name: Install Dependencies
-        run: |
-          if [ -d "onboarding-project" ]; then
-            cd onboarding-project
-            npm ci
-            echo "Dependencies installed successfully"
-          else
-            echo "Error: onboarding-project directory not found"
-            exit 1
-          fi
+        run: npm ci
 
       - name: Build
         run: |
-          if [ -d "onboarding-project" ]; then
-            cd onboarding-project
-            echo "Creating .env file..."
-            echo "REACT_APP_OPENAI_API_KEY=${{ secrets.REACT_APP_OPENAI_API_KEY }}" > .env
-            echo "Building application..."
-            CI=false npm run build
-            echo "Build completed"
-            echo "Build directory contents:"
-            ls -la build/
-            rm .env
-          else
-            echo "Error: onboarding-project directory not found"
-            exit 1
-          fi
+          echo "Creating .env file..."
+          echo "REACT_APP_OPENAI_API_KEY=${{ secrets.REACT_APP_OPENAI_API_KEY }}" > .env
+          echo "Building application..."
+          CI=false npm run build
+          echo "Build completed"
+          echo "Build directory contents:"
+          ls -la build/
+          rm .env
 
       - name: Deploy
         uses: JamesIves/github-pages-deploy-action@v4
