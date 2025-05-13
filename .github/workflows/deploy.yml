@@ -32,20 +32,30 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          cd onboarding-project
-          npm ci
+          if [ -d "onboarding-project" ]; then
+            cd onboarding-project
+            npm ci
+          else
+            echo "Error: onboarding-project directory not found"
+            exit 1
+          fi
 
       - name: Build
         run: |
-          cd onboarding-project
-          echo "Creating .env file..."
-          echo "REACT_APP_OPENAI_API_KEY=${{ secrets.REACT_APP_OPENAI_API_KEY }}" > .env
-          echo "Building application..."
-          CI=false npm run build
-          echo "Build completed"
-          echo "Build directory contents:"
-          ls -la build/
-          rm .env
+          if [ -d "onboarding-project" ]; then
+            cd onboarding-project
+            echo "Creating .env file..."
+            echo "REACT_APP_OPENAI_API_KEY=${{ secrets.REACT_APP_OPENAI_API_KEY }}" > .env
+            echo "Building application..."
+            CI=false npm run build
+            echo "Build completed"
+            echo "Build directory contents:"
+            ls -la build/
+            rm .env
+          else
+            echo "Error: onboarding-project directory not found"
+            exit 1
+          fi
 
       - name: Deploy
         uses: JamesIves/github-pages-deploy-action@v4
