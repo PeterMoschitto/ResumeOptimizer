@@ -1,11 +1,6 @@
 {
-  "homepage": "https://PeterMoschitto.github.io/onboarding-project",
   "dependencies": {
     "@types/pdfjs-dist": "^2.10.377",
     "pdfjs-dist": "^3.11.174"
-  },
-  "scripts": {
-    "predeploy": "npm run build",
-    "deploy": "gh-pages -d build"
   }
 }
