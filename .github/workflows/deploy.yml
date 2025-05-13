@@ -1,0 +1,36 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches:
+      - gh-pages
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install Dependencies
+        run: |
+          cd onboarding-project
+          npm install
+
+      - name: Build
+        run: |
+          cd onboarding-project
+          echo "REACT_APP_OPENAI_API_KEY=${{ secrets.REACT_APP_OPENAI_API_KEY }}" > .env
+          npm run build
+          rm .env
+
+      - name: Deploy
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: onboarding-project/build
+          branch: gh-pages 
