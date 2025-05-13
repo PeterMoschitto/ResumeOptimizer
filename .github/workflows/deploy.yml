@@ -11,9 +11,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    defaults:
-      run:
-        working-directory: onboarding-project
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -36,10 +33,13 @@ jobs:
           echo "NPM version: $(npm -v)"
 
       - name: Install Dependencies
-        run: npm ci
+        run: |
+          cd onboarding-project
+          npm ci
 
       - name: Build
         run: |
+          cd onboarding-project
           echo "Creating .env file..."
           echo "REACT_APP_OPENAI_API_KEY=${{ secrets.REACT_APP_OPENAI_API_KEY }}" > .env
           echo "Building application..."
