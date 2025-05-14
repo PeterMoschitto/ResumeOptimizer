@@ -128,14 +128,18 @@ export const analyzeResume = async (
       });
 
       const data = await response.json();
-      const chunkResult = data.choices[0].message.content;
+      let chunkResult = data.choices[0].message.content;
+      // Remove Markdown code block formatting if present
+      chunkResult = chunkResult.replace(/```json\s*|```/gi, '').trim();
       
       try {
-        // Ensure the chunk result is valid JSON
-        const parsedChunk = JSON.parse(chunkResult);
+        // Extract the first JSON object from the response string
+        const jsonMatch = chunkResult.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) throw new Error('No JSON object found in chunk result');
+        const parsedChunk = JSON.parse(jsonMatch[0]);
         chunkResults.push(parsedChunk);
       } catch (e) {
-        console.error('Error parsing chunk result:', e);
+        console.error('Error parsing chunk result:', e, '\nChunk result:', chunkResult);
         throw new Error('Failed to parse chunk analysis');
       }
       
@@ -260,7 +264,13 @@ export const analyzeResume = async (
     });
 
     const finalResult = await finalResponse.json();
-    const analysis = JSON.parse(finalResult.choices[0].message.content);
+    let finalContent = finalResult.choices[0].message.content;
+    // Remove Markdown code block formatting if present
+    finalContent = finalContent.replace(/```json\s*|```/gi, '').trim();
+    // Extract the first JSON object from the response string
+    const jsonMatch = finalContent.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('No JSON object found in final analysis');
+    const analysis = JSON.parse(jsonMatch[0]);
     
     // Validate the final analysis
     const validatedAnalysis = validateAnalysisResponse(analysis);
