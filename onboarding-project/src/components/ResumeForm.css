@@ -58,8 +58,8 @@
   letter-spacing: 0.025em;
 }
 
-.form-group input,
-.form-group textarea {
+.form-group input {
+  box-sizing: border-box;
   width: 100%;
   padding: 1rem;
   border: 2px solid var(--border);
@@ -68,6 +68,7 @@
   transition: all 0.2s ease;
   background: var(--background);
   color: var(--text-primary);
+  margin: 0;
 }
 
 .form-group input:focus,
