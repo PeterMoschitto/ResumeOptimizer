@@ -60,9 +60,13 @@ export const extractTextWithExactFormatting = async (
     
     // Build text preserving exact spacing and structure
     let pageText = '';
-    let currentY = textItems[0]?.y || 0;
-    let currentLineX = 0;
-    let currentLineItems: TextItem[] = [];
+    // These variables were intended for future use but are currently unused
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _currentY = textItems[0]?.y || 0;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _currentLineX = 0;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _currentLineItems: TextItem[] = [];
     const lineTolerance = 2; // Pixels - tighter tolerance
     
     // Group items by line first

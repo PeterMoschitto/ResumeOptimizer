@@ -95,12 +95,13 @@ export const parseResume = (resumeText: string): ParsedResume => {
     const line = lines[i];
     let sectionType: ResumeSection['type'] = 'other';
     let sectionTitle = 'Other';
-    let isSectionHeader = false;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    let _isSectionHeader = false;
 
     // Check if this line is a section header (more lenient matching)
     for (const [key, pattern] of Object.entries(SECTION_PATTERNS)) {
       if (pattern.test(line)) {
-        isSectionHeader = true;
+        _isSectionHeader = true;
         // Save previous section if exists
         if (currentSection) {
           sections.push(currentSection);
