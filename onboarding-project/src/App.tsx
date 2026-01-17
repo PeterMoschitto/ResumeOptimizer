@@ -1,156 +1,104 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
-import ResumeForm from './components/ResumeForm';
+import ResumeForm, { ResumeContext } from './components/ResumeForm';
 import AISuggestions from './components/AISuggestions';
-import { analyzeResume } from './services/openai';
+import ComparisonDashboard from './components/ComparisonDashboard';
+import ResumeEditor from './components/ResumeEditor';
+import { analyzeResumeOptimized } from './services/openai-optimized';
+import { multiAIOrchestrator } from './services/multi-ai-orchestrator';
+import { handleAPIError } from './utils/errorHandler';
+import { getEnvironmentConfig } from './utils/envValidator';
+import { ResumeAnalysis, ComparisonAnalysis } from './types';
 
 function App() {
-  const [suggestions, setSuggestions] = useState<null | {
-    overallScore: number;
-    improvements: string[];
-    rewrites: {
-      section: string;
-      original: string;
-      improved: string;
-    }[];
-    skills: {
-      matching: string[];
-      missing: string[];
-      suggested: string[];
-    };
-    keywords: string[];
-    formatting: {
-      issues: string[];
-      suggestions: string[];
-    };
-    impact: {
-      strengths: string[];
-      weaknesses: string[];
-      recommendations: string[];
-    };
-    competitorAnalysis: {
-      marketPosition: string;
-      competitiveAdvantages: string[];
-      competitiveDisadvantages: string[];
-      differentiationStrategies: string[];
-      industryBenchmarks: {
-        averageScore: number;
-        topPerformersScore: number;
-        yourScore: number;
-      };
-      industryAnalysis: {
-        trends: string[];
-        inDemandSkills: string[];
-        salaryRange: {
-          entry: string;
-          mid: string;
-          senior: string;
-        };
-        topCompanies: string[];
-        growthAreas: string[];
-      };
-      careerProgression: {
-        currentLevel: string;
-        nextSteps: {
-          shortTerm: string[];
-          mediumTerm: string[];
-          longTerm: string[];
-        };
-        skillGaps: {
-          technical: string[];
-          soft: string[];
-          industry: string[];
-        };
-        certifications: {
-          recommended: string[];
-          priority: string[];
-        };
-        careerPaths: {
-          primary: string;
-          alternatives: string[];
-          requirements: {
-            [path: string]: string[];
-          };
-        };
-      };
-    };
-  }>(null);
+  const [suggestions, setSuggestions] = useState<ResumeAnalysis | null>(null);
+  const [comparison, setComparison] = useState<ComparisonAnalysis | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [progress, setProgress] = useState(0);
+  const [progress, setProgress] = useState<Record<string, number>>({});
   const [error, setError] = useState<string | null>(null);
+  const [useMultiAI, setUseMultiAI] = useState(true);
+  const [currentResume, setCurrentResume] = useState<string>('');
+  const [currentResumeFile, setCurrentResumeFile] = useState<File | null>(null);
+  const [showEditor, setShowEditor] = useState(false);
 
   useEffect(() => {
-    const testAPIKey = async () => {
-      const OPENAI_API_KEY = process.env.REACT_APP_OPENAI_API_KEY;
-      
-      if (!OPENAI_API_KEY) {
-        setError('OpenAI API key not found. Please add REACT_APP_OPENAI_API_KEY to your .env file.');
-        return;
-      }
-
+    const testBackendConnection = async () => {
       try {
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${OPENAI_API_KEY}`
-          },
-          body: JSON.stringify({
-            model: "gpt-3.5-turbo",
-            messages: [
-              {
-                role: "user",
-                content: "Say 'API key is working!' if you can read this."
-              }
-            ],
-            max_tokens: 10
-          })
-        });
-
-        if (!response.ok) {
-          const error = await response.json();
-          if (error.error?.message?.includes('quota')) {
-            setError('API quota exceeded. Please check your OpenAI account billing and usage limits at https://platform.openai.com/account/usage');
-          } else {
-            setError(`API Error: ${error.error?.message || 'Unknown error'}`);
-          }
-          return;
+        const { apiClient } = await import('./services/api-client');
+        const health = await apiClient.healthCheck();
+        console.log('✅ Backend connected! Available providers:', health.providers);
+        
+        if (health.providers.length === 0) {
+          setError('No AI providers configured. Please set up API keys in the backend .env file.');
         }
-
-        const data = await response.json();
-        console.log('✅ API key is working! Response:', data.choices[0].message.content);
       } catch (error) {
-        setError(`Error testing API: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        const apiError = handleAPIError(error);
+        setError(apiError.userFriendly || 'Cannot connect to backend server. Please ensure the backend is running on port 5001.');
       }
     };
 
-    testAPIKey();
+    testBackendConnection();
   }, []);
 
-  const handleResumeSubmit = async (resume: string, jobTitle: string) => {
+  const handleResumeSubmit = async (resume: string, jobTitle: string, context: ResumeContext, resumeFile?: File) => {
     try {
       setIsLoading(true);
       setError(null);
-      setProgress(0);
+      setProgress({});
+      setSuggestions(null);
+      setComparison(null);
+      setCurrentResume(resume);
+      setCurrentResumeFile(resumeFile || null);
+      setShowEditor(false);
 
-      const analysis = await analyzeResume(resume, jobTitle, (progress) => {
-        setProgress(progress);
-      });
-
-      setSuggestions(analysis);
+      if (useMultiAI) {
+        // Use multi-AI comparison
+        const comparisonResult = await multiAIOrchestrator.analyzeWithAllProviders(
+          resume,
+          jobTitle,
+          context,
+          (provider, providerProgress) => {
+            setProgress(prev => ({
+              ...prev,
+              [provider]: providerProgress
+            }));
+          }
+        );
+        setComparison(comparisonResult);
+        // Set suggestions to the first successful analysis for backward compatibility
+        const firstSuccess = comparisonResult.analyses.find(a => !a.error);
+        if (firstSuccess) {
+          setSuggestions(firstSuccess.analysis);
+        }
+      } else {
+        // Use single AI (OpenAI only)
+        const analysis = await analyzeResumeOptimized(resume, jobTitle, context, (progress: number) => {
+          setProgress({ openai: progress });
+        });
+        setSuggestions(analysis);
+      }
     } catch (err: any) {
-      setError(err.message || 'Failed to analyze resume');
+      const apiError = handleAPIError(err);
+      setError(apiError.userFriendly || 'Failed to analyze resume');
       console.error('Error analyzing resume:', err);
     } finally {
       setIsLoading(false);
     }
   };
 
+  const [configuredProviders, setConfiguredProviders] = React.useState<string[]>([]);
+
+  React.useEffect(() => {
+    multiAIOrchestrator.getConfiguredProviders().then(providers => {
+      setConfiguredProviders(providers);
+    });
+  }, []);
+
   return (
     <div className="App">
       <header className="App-header">
-        <h1>Resume Optimizer</h1>
-        <p>Get AI-powered suggestions to tailor your resume for specific job positions</p>
+        <h1>AI Resume Analyzer & Comparison Platform</h1>
+        <p>Compare how different AI models analyze and grade your resume</p>
       </header>
       <main className="App-main">
         {error && (
@@ -158,12 +106,83 @@ function App() {
             {error}
           </div>
         )}
+        
+        {/* Mode Toggle */}
+        <div className="mode-toggle">
+          <label>
+            <input
+              type="checkbox"
+              checked={useMultiAI}
+              onChange={(e) => setUseMultiAI(e.target.checked)}
+            />
+            <span>Multi-AI Comparison Mode</span>
+          </label>
+          {useMultiAI && (
+            <div className="providers-info">
+              Configured providers: {configuredProviders.length > 0 
+                ? configuredProviders.map(p => {
+                    const names: Record<string, string> = {
+                      openai: 'OpenAI GPT-4',
+                      anthropic: 'Anthropic Claude',
+                      google: 'Google Gemini'
+                    };
+                    return names[p] || p;
+                  }).join(', ')
+                : 'Loading...'}
+            </div>
+          )}
+        </div>
+
         <ResumeForm onSubmit={handleResumeSubmit} isLoading={isLoading} />
-        {suggestions && (
+        
+        {/* Show Resume Editor if enabled */}
+        {showEditor && comparison?.actionPlan && currentResume && (
+          <ResumeEditor
+            originalResume={currentResume}
+            originalResumeFile={currentResumeFile || undefined}
+            actionPlan={comparison.actionPlan}
+            currentScore={comparison.consensus.averageScore}
+            onResumeUpdate={(updated) => setCurrentResume(updated)}
+            onBack={() => setShowEditor(false)}
+          />
+        )}
+
+        {/* Show comparison dashboard if multi-AI mode and editor not shown */}
+        {useMultiAI && comparison && !showEditor && (
+          <>
+            <ComparisonDashboard 
+              comparison={comparison}
+              isLoading={isLoading}
+            />
+            {comparison.actionPlan && (
+              <div style={{ textAlign: 'center', margin: '2rem 0' }}>
+                <button
+                  onClick={() => setShowEditor(true)}
+                  style={{
+                    padding: '1rem 2rem',
+                    fontSize: '1.1rem',
+                    background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)'
+                  }}
+                >
+                  ✏️ Edit Resume with Action Plan
+                </button>
+              </div>
+            )}
+          </>
+        )}
+        
+        {/* Show single AI suggestions if single mode or as fallback */}
+        {suggestions && (!useMultiAI || !comparison) && !showEditor && (
           <AISuggestions 
             suggestions={suggestions} 
             isLoading={isLoading}
-            progress={progress}
+            progress={typeof progress === 'number' ? progress : Object.values(progress)[0] || 0}
           />
         )}
       </main>

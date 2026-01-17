@@ -1,46 +1,122 @@
-# Getting Started with Create React App
+# Resume Optimizer
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+An AI-powered resume analysis tool that provides comprehensive feedback and optimization suggestions for job applications.
 
-## Available Scripts
+## Features
 
-In the project directory, you can run:
+- **PDF & Text Upload**: Support for PDF and text file uploads with drag-and-drop
+- **AI-Powered Analysis**: Comprehensive resume analysis using OpenAI's GPT-4
+- **Skills Assessment**: Identifies matching, missing, and suggested skills
+- **Market Analysis**: Provides competitive analysis and industry insights
+- **Career Progression**: Suggests next steps and skill development paths
+- **Caching**: Intelligent caching to avoid redundant API calls
+- **Error Handling**: Robust error handling with user-friendly messages
 
-### `npm start`
+## Setup
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+### Prerequisites
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+- Node.js (v14 or higher)
+- npm or yarn
+- OpenAI API key
 
-### `npm test`
+### Installation
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+1. Clone the repository:
+```bash
+git clone <repository-url>
+cd onboarding-project
+```
 
-### `npm run build`
+2. Install dependencies:
+```bash
+npm install
+```
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+3. Create a `.env` file in the root directory:
+```bash
+REACT_APP_OPENAI_API_KEY=your_openai_api_key_here
+```
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+4. Start the development server:
+```bash
+npm start
+```
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+The application will be available at `http://localhost:3000`.
 
-### `npm run eject`
+## Usage
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+1. Enter your target job title
+2. Upload your resume (PDF or text format)
+3. Click "Analyze Resume" to get AI-powered feedback
+4. Review the comprehensive analysis including:
+   - Overall score and benchmarking
+   - Skills analysis
+   - Market position assessment
+   - Career progression suggestions
+   - Formatting recommendations
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+## Technical Architecture
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
+### Key Components
 
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
+- **App.tsx**: Main application component with state management
+- **ResumeForm.tsx**: File upload and form handling
+- **AISuggestions.tsx**: Results display and visualization
+- **openai-optimized.ts**: Optimized API service with single-call approach
+- **cache.ts**: Intelligent caching system
+- **errorHandler.ts**: Centralized error management
+- **pdfOptimizer.ts**: Optimized PDF processing
 
-## Learn More
+### Performance Optimizations
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+- **Single API Call**: Reduced from N+1 calls to 1 optimized call
+- **Intelligent Caching**: 24-hour cache with robust hashing
+- **PDF Processing**: Optimized with timeouts and size limits
+- **Error Recovery**: Automatic retry with exponential backoff
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+### Error Handling
+
+- Rate limiting detection and handling
+- Quota exceeded notifications
+- Network error recovery
+- User-friendly error messages
+- Graceful degradation
+
+## Configuration
+
+Key configuration options in `src/constants/index.ts`:
+
+- API settings (retries, timeouts, tokens)
+- File processing limits
+- Cache duration
+- UI configuration
+
+## Development
+
+### Available Scripts
+
+- `npm start`: Start development server
+- `npm build`: Build for production
+- `npm test`: Run tests
+- `npm eject`: Eject from Create React App
+
+### Code Quality
+
+- TypeScript for type safety
+- ESLint for code linting
+- Prettier for code formatting
+- Error boundaries for React components
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
+
+## License
+
+MIT License - see LICENSE file for details.

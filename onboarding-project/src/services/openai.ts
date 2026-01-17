@@ -1,9 +1,6 @@
 import { ResumeAnalysis, APIError } from '../types';
 import { resumeCache } from './cache';
-
-const CHUNK_SIZE = 1000; // Process resume in chunks of 1000 characters
-const MAX_RETRIES = 3;
-const RETRY_DELAY = 1000; // 1 second
+import { API_CONFIG } from '../constants';
 
 // Get API key from environment
 const getApiKey = () => {
@@ -44,8 +41,8 @@ const validateAnalysisResponse = (data: any): ResumeAnalysis => {
 // Retry mechanism for API calls
 const retryWithBackoff = async (
   fn: () => Promise<any>,
-  retries: number = MAX_RETRIES,
-  delay: number = RETRY_DELAY
+  retries: number = API_CONFIG.MAX_RETRIES,
+  delay: number = API_CONFIG.RETRY_DELAY
 ): Promise<any> => {
   try {
     return await fn();
@@ -78,8 +75,8 @@ export const analyzeResume = async (
 
     // Split resume into chunks
     const chunks = [];
-    for (let i = 0; i < resume.length; i += CHUNK_SIZE) {
-      chunks.push(resume.slice(i, i + CHUNK_SIZE));
+    for (let i = 0; i < resume.length; i += API_CONFIG.CHUNK_SIZE) {
+      chunks.push(resume.slice(i, i + API_CONFIG.CHUNK_SIZE));
     }
 
     // Process each chunk with retry mechanism
@@ -94,7 +91,7 @@ export const analyzeResume = async (
             'Authorization': `Bearer ${apiKey}`
           },
           body: JSON.stringify({
-            model: 'gpt-4o',
+            model: 'gpt-4',
             messages: [
               {
                 role: 'system',
@@ -160,7 +157,7 @@ export const analyzeResume = async (
           'Authorization': `Bearer ${apiKey}`
         },
         body: JSON.stringify({
-          model: 'gpt-4o',
+          model: 'gpt-4',
           messages: [
             {
               role: 'system',

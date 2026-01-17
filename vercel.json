@@ -1,0 +1,19 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "onboarding-project/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "build"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "onboarding-project/$1"
+    }
+  ],
+  "buildCommand": "cd onboarding-project && npm install && npm run build"
+}

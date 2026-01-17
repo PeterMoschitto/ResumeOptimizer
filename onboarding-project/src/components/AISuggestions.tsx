@@ -1,4 +1,5 @@
 import React from 'react';
+import { UI_CONFIG } from '../constants';
 import './AISuggestions.css';
 
 interface AISuggestionsProps {
@@ -100,22 +101,15 @@ const AISuggestions: React.FC<AISuggestionsProps> = ({ suggestions, isLoading = 
           </div>
           <p className="loading-text">Processing your resume... {progress}%</p>
           <div className="loading-steps">
-            <div className={`step ${progress >= 20 ? 'completed' : ''}`}>
-              <span className="step-icon">📄</span>
-              <span className="step-text">Reading Resume</span>
-            </div>
-            <div className={`step ${progress >= 40 ? 'completed' : ''}`}>
-              <span className="step-icon">🔍</span>
-              <span className="step-text">Analyzing Content</span>
-            </div>
-            <div className={`step ${progress >= 60 ? 'completed' : ''}`}>
-              <span className="step-icon">📊</span>
-              <span className="step-text">Evaluating Skills</span>
-            </div>
-            <div className={`step ${progress >= 80 ? 'completed' : ''}`}>
-              <span className="step-icon">💡</span>
-              <span className="step-text">Generating Insights</span>
-            </div>
+            {UI_CONFIG.PROGRESS_STEPS.map((step, index) => (
+              <div 
+                key={index} 
+                className={`step ${progress >= (index + 1) * 20 ? 'completed' : ''}`}
+              >
+                <span className="step-icon">{step.icon}</span>
+                <span className="step-text">{step.text}</span>
+              </div>
+            ))}
             <div className={`step ${progress >= 100 ? 'completed' : ''}`}>
               <span className="step-icon">✨</span>
               <span className="step-text">Finalizing Results</span>

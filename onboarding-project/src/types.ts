@@ -1,6 +1,18 @@
+export interface PrioritizedImprovement {
+  text: string;
+  impact: number; // 1-10 scale
+  effort: 'low' | 'medium' | 'high';
+  category: 'content' | 'formatting' | 'skills' | 'keywords' | 'structure';
+  estimatedScoreIncrease?: number; // Estimated points this could add
+  efficiency?: number; // impact / effort (calculated)
+  relatedSectionIds?: string[]; // IDs of resume sections this improvement relates to
+  isCompleted?: boolean; // Whether user has completed this improvement
+}
+
 export interface ResumeAnalysis {
   overallScore: number;
   improvements: string[];
+  prioritizedImprovements?: PrioritizedImprovement[]; // New prioritized format
   rewrites: {
     section: string;
     original: string;
@@ -66,6 +78,62 @@ export interface ResumeAnalysis {
         };
       };
     };
+  };
+}
+
+export type AIProvider = 'openai' | 'anthropic' | 'google' | 'cohere';
+
+export interface ProviderAnalysis {
+  provider: AIProvider;
+  providerName: string;
+  analysis: ResumeAnalysis;
+  timestamp: number;
+  responseTime?: number;
+  error?: string;
+}
+
+export interface PrioritizedActionPlan {
+  quickWins: PrioritizedImprovement[]; // High impact, low effort
+  strategic: PrioritizedImprovement[]; // High impact, high effort
+  lowPriority: PrioritizedImprovement[]; // Low impact
+  allPrioritized: PrioritizedImprovement[]; // All sorted by efficiency
+}
+
+export interface ComparisonAnalysis {
+  analyses: ProviderAnalysis[];
+  consensus: {
+    averageScore: number;
+    scoreRange: { min: number; max: number };
+    scoreStdDev: number;
+    agreedImprovements: string[];
+    agreedMissingSkills: string[];
+    scoreVariance: number;
+  };
+  actionPlan?: PrioritizedActionPlan; // New prioritized action plan
+  divergence: {
+    scoreDifferences: Array<{
+      provider1: AIProvider;
+      provider2: AIProvider;
+      difference: number;
+    }>;
+    uniqueImprovements: Array<{
+      provider: AIProvider;
+      improvements: string[];
+    }>;
+    conflictingRecommendations: Array<{
+      topic: string;
+      providers: Array<{
+        provider: AIProvider;
+        recommendation: string;
+      }>;
+    }>;
+  };
+  insights: {
+    mostConsistentProvider: AIProvider;
+    mostOptimisticProvider: AIProvider;
+    mostCriticalProvider: AIProvider;
+    keyAgreements: string[];
+    keyDisagreements: string[];
   };
 }
 

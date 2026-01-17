@@ -1,4 +1,5 @@
 import { ResumeAnalysis } from '../types';
+import { CACHE_CONFIG } from '../constants';
 
 interface CacheEntry {
   data: ResumeAnalysis;
@@ -8,7 +9,7 @@ interface CacheEntry {
 class ResumeAnalysisCache {
   private static instance: ResumeAnalysisCache;
   private cache: Map<string, CacheEntry>;
-  private readonly CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+  private readonly CACHE_DURATION = CACHE_CONFIG.DURATION;
 
   private constructor() {
     this.cache = new Map();
@@ -22,15 +23,25 @@ class ResumeAnalysisCache {
   }
 
   private generateKey(resume: string, jobTitle: string): string {
-    // Create a simple hash of the resume content and job title
+    // Create a more robust hash using crypto-js style hashing
     const content = resume + jobTitle;
     let hash = 0;
+    const prime = 31;
+    const mod = 1e9 + 7;
+    
     for (let i = 0; i < content.length; i++) {
       const char = content.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash; // Convert to 32bit integer
+      hash = (hash * prime + char) % mod;
     }
-    return hash.toString();
+    
+    // Add job title hash for better uniqueness
+    let titleHash = 0;
+    for (let i = 0; i < jobTitle.length; i++) {
+      const char = jobTitle.charCodeAt(i);
+      titleHash = (titleHash * prime + char) % mod;
+    }
+    
+    return `${hash}_${titleHash}`;
   }
 
   public get(resume: string, jobTitle: string): ResumeAnalysis | null {
