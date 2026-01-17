@@ -78,7 +78,6 @@ interface AISuggestionsProps {
 }
 
 const AISuggestions: React.FC<AISuggestionsProps> = ({ suggestions, isLoading = false, progress = 0 }) => {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const {
     overallScore,
     improvements,
@@ -87,8 +86,11 @@ const AISuggestions: React.FC<AISuggestionsProps> = ({ suggestions, isLoading = 
     formatting,
     impact,
     competitorAnalysis
-    // keywords is part of suggestions but not currently used in the UI
   } = suggestions;
+  
+  // Suppress unused keywords warning - it's part of the interface but not displayed
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _unusedKeywords = suggestions.keywords;
 
   console.log('AISuggestions props:', suggestions);
   console.log('Industry Analysis:', suggestions?.competitorAnalysis?.industryAnalysis);
