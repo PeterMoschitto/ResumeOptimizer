@@ -1,0 +1,12 @@
+{
+  "buildCommand": "cd onboarding-project && npm install && npm run build",
+  "outputDirectory": "onboarding-project/build",
+  "framework": null,
+  "installCommand": "cd onboarding-project && npm install",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
