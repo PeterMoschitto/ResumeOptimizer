@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable no-unused-vars */
 import React from 'react';
 import { UI_CONFIG } from '../constants';
 import './AISuggestions.css';
