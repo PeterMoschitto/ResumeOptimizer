@@ -478,7 +478,6 @@ const ResumeEditor: React.FC<ResumeEditorProps> = ({
       }
 
       // Create PDF
-      const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
@@ -495,28 +494,50 @@ const ResumeEditor: React.FC<ResumeEditorProps> = ({
       // Calculate total number of pages needed
       const totalPages = Math.ceil(imgHeight / pdfHeight);
       
-      // Add image across multiple pages
+      // Convert canvas pixels to PDF mm for slicing
+      const pixelsPerMm = canvas.width / pdfWidth;
+      const pageHeightInPixels = pdfHeight * pixelsPerMm;
+      
+      // Add image across multiple pages by slicing the canvas
       for (let page = 0; page < totalPages; page++) {
         if (page > 0) {
           pdf.addPage();
         }
         
-        // Calculate the Y position for this page (negative to show the correct portion)
-        const yPosition = -(page * pdfHeight);
+        // Calculate the source Y position in pixels
+        const sourceY = page * pageHeightInPixels;
+        const sourceHeight = Math.min(pageHeightInPixels, canvas.height - sourceY);
         
-        // Calculate the height for this page slice
-        const pageImgHeight = Math.min(pdfHeight, imgHeight - (page * pdfHeight));
+        // Create a temporary canvas for this page slice
+        const pageCanvas = document.createElement('canvas');
+        pageCanvas.width = canvas.width;
+        pageCanvas.height = sourceHeight;
+        const pageCtx = pageCanvas.getContext('2d');
         
-        // Add the full image positioned to show the correct portion
-        // We use the full image and position it so only the relevant portion shows
-        pdf.addImage(
-          imgData,
-          'PNG',
-          0, // x position
-          yPosition, // y position (negative to shift up)
-          imgWidth, // width
-          imgHeight // full height
-        );
+        if (pageCtx) {
+          // Draw the slice of the image for this page
+          pageCtx.drawImage(
+            canvas,
+            0, sourceY, canvas.width, sourceHeight, // Source rectangle
+            0, 0, canvas.width, sourceHeight // Destination rectangle
+          );
+          
+          // Convert page slice to image data
+          const pageImgData = pageCanvas.toDataURL('image/png');
+          
+          // Calculate the height in mm for this page
+          const pageImgHeight = (sourceHeight * pdfWidth) / canvas.width;
+          
+          // Add the page slice to PDF
+          pdf.addImage(
+            pageImgData,
+            'PNG',
+            0, // x position (left edge)
+            0, // y position (top of page)
+            imgWidth, // width
+            pageImgHeight // height for this page
+          );
+        }
       }
 
       // Save PDF
