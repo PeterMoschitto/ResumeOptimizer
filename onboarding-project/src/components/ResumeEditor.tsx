@@ -43,6 +43,7 @@ const ResumeEditor: React.FC<ResumeEditorProps> = ({
   const selectionRef = useRef<any>(null);
   const isUpdatingRef = useRef(false);
   const scrollPositionRef = useRef<{ top: number; left: number; scrollHeight?: number; clientHeight?: number } | null>(null);
+  const contentInitializedRef = useRef(false);
 
   // Parse resume on mount - with formatting if PDF file available
   useEffect(() => {
@@ -96,6 +97,7 @@ const ResumeEditor: React.FC<ResumeEditorProps> = ({
           };
           setParsedResume(parsed);
           linkImprovementsToSections(parsed, actionPlan);
+          contentInitializedRef.current = false; // Reset flag to allow initialization
         } finally {
           setIsLoadingFormatting(false);
         }
@@ -118,6 +120,7 @@ const ResumeEditor: React.FC<ResumeEditorProps> = ({
         };
         setParsedResume(parsed);
         linkImprovementsToSections(parsed, actionPlan);
+        contentInitializedRef.current = false; // Reset flag to allow initialization
       }
     };
 
@@ -125,6 +128,39 @@ const ResumeEditor: React.FC<ResumeEditorProps> = ({
       loadResume();
     }
   }, [originalResume, originalResumeFile]);
+
+  // Initialize content in editable div only once - never reset after user edits
+  useEffect(() => {
+    if (parsedResume && editableContentRef.current && !contentInitializedRef.current) {
+      const section = parsedResume.sections.find(s => s.id === 'resume-full');
+      if (section && section.htmlContent) {
+        // Only set if the div is empty - don't overwrite user edits
+        if (!editableContentRef.current.innerHTML || editableContentRef.current.innerHTML.trim() === '') {
+          editableContentRef.current.innerHTML = section.htmlContent;
+        }
+        contentInitializedRef.current = true;
+      }
+    }
+  }, [parsedResume]);
+
+  // Prevent React from resetting content on re-render
+  // Only update if content is actually different and we haven't initialized yet
+  useEffect(() => {
+    if (parsedResume && editableContentRef.current && contentInitializedRef.current) {
+      const section = parsedResume.sections.find(s => s.id === 'resume-full');
+      if (section && section.htmlContent) {
+        const currentContent = editableContentRef.current.innerHTML;
+        // Only update if it's a completely different resume (not just a state update from editing)
+        // Check if the original content changed, not the current edited content
+        if (section.originalHtmlContent && section.originalHtmlContent !== currentContent) {
+          // This means it's a new resume, reset
+          editableContentRef.current.innerHTML = section.htmlContent;
+          contentInitializedRef.current = false; // Allow re-initialization
+        }
+        // Otherwise, don't touch the content - user edits are preserved
+      }
+    }
+  }, [parsedResume?.sections.find(s => s.id === 'resume-full')?.originalHtmlContent]);
 
   // Link improvements to sections
   const linkImprovementsToSections = (parsed: ParsedResume, plan: PrioritizedActionPlan) => {
@@ -727,7 +763,6 @@ const ResumeEditor: React.FC<ResumeEditorProps> = ({
                     className="editable-content pdf-editable"
                     contentEditable
                     suppressContentEditableWarning
-                    dangerouslySetInnerHTML={{ __html: section.htmlContent }}
                     style={section.style}
                     onKeyDown={(e) => {
                       // Save cursor position before any key action (especially delete/backspace)
@@ -756,6 +791,20 @@ const ResumeEditor: React.FC<ResumeEditorProps> = ({
                       handleSectionChange(section.id, textContent, htmlContent);
                     }}
                     onInput={(e) => {
+                      // IMMEDIATELY update state to prevent content loss on re-render
+                      const htmlContent = e.currentTarget.innerHTML;
+                      const textContent = e.currentTarget.textContent || '';
+                      
+                      // Update state immediately to prevent reverting to old content
+                      if (parsedResume) {
+                        const updated: ResumeSection[] = parsedResume.sections.map(s =>
+                          s.id === section.id 
+                            ? { ...s, isEdited: true, content: textContent, htmlContent: htmlContent } 
+                            : s
+                        );
+                        setParsedResume({ ...parsedResume, sections: updated });
+                      }
+                      
                       // Find the scrollable container
                       let scrollContainer: HTMLElement | null = null;
                       let current: HTMLElement | null = e.currentTarget.parentElement;
@@ -772,7 +821,6 @@ const ResumeEditor: React.FC<ResumeEditorProps> = ({
                       }
                       
                       // Save scroll position immediately from the correct container
-                      // Also save scrollHeight to detect if content height changed
                       if (scrollContainer) {
                         scrollPositionRef.current = {
                           top: scrollContainer.scrollTop,
@@ -796,75 +844,57 @@ const ResumeEditor: React.FC<ResumeEditorProps> = ({
                       }
                       isUpdatingRef.current = true;
                       
-                      // Mark as edited in real-time - but don't update state immediately
-                      // This prevents re-renders that cause scroll jumps
-                      const htmlContent = e.currentTarget.innerHTML;
-                      const textContent = e.currentTarget.textContent || '';
-                      
-                      // Use setTimeout to debounce state updates and prevent scroll jumps
-                      setTimeout(() => {
-                        if (textContent !== section.originalContent || 
-                            (htmlContent !== section.originalHtmlContent && section.originalHtmlContent)) {
-                          const updated: ResumeSection[] = parsedResume.sections.map(s =>
-                            s.id === section.id 
-                              ? { ...s, isEdited: true, content: textContent, htmlContent: htmlContent } 
-                              : s
-                          );
-                          setParsedResume({ ...parsedResume, sections: updated });
-                        }
-                        
-                        // Restore scroll and cursor after state update with multiple attempts
-                        requestAnimationFrame(() => {
-                          // Restore scroll from the correct container
-                          if (scrollPositionRef.current && scrollContainer) {
-                            const saved = scrollPositionRef.current as any;
+                      // Restore scroll and cursor after state update
+                      requestAnimationFrame(() => {
+                        // Restore scroll from the correct container
+                        if (scrollPositionRef.current && scrollContainer) {
+                          const saved = scrollPositionRef.current as any;
+                          
+                          // If we're at the bottom, maintain bottom position even if content height changed
+                          const wasAtBottom = saved.scrollHeight && saved.clientHeight && 
+                                             (saved.scrollHeight - saved.top - saved.clientHeight < 20);
+                          
+                          if (wasAtBottom) {
+                            // Keep at bottom - restore immediately and again after layout
+                            scrollContainer.scrollTop = scrollContainer.scrollHeight - scrollContainer.clientHeight;
+                            scrollContainer.scrollLeft = saved.left;
                             
-                            // If we're at the bottom, maintain bottom position even if content height changed
-                            const wasAtBottom = saved.scrollHeight && saved.clientHeight && 
-                                               (saved.scrollHeight - saved.top - saved.clientHeight < 20);
-                            
-                            if (wasAtBottom) {
-                              // Keep at bottom - restore immediately and again after layout
-                              scrollContainer.scrollTop = scrollContainer.scrollHeight - scrollContainer.clientHeight;
-                              scrollContainer.scrollLeft = saved.left;
+                            // Restore again after layout settles
+                            requestAnimationFrame(() => {
+                              if (scrollContainer) {
+                                scrollContainer.scrollTop = scrollContainer.scrollHeight - scrollContainer.clientHeight;
+                              }
+                              restoreCursorPosition();
                               
-                              // Restore again after layout settles
+                              // One more time to be sure
                               requestAnimationFrame(() => {
                                 if (scrollContainer) {
                                   scrollContainer.scrollTop = scrollContainer.scrollHeight - scrollContainer.clientHeight;
                                 }
-                                restoreCursorPosition();
-                                
-                                // One more time to be sure
-                                requestAnimationFrame(() => {
-                                  if (scrollContainer) {
-                                    scrollContainer.scrollTop = scrollContainer.scrollHeight - scrollContainer.clientHeight;
-                                  }
-                                  isUpdatingRef.current = false;
-                                });
-                              });
-                            } else {
-                              // Not at bottom - restore exact position
-                              scrollContainer.scrollTop = saved.top;
-                              scrollContainer.scrollLeft = saved.left;
-                              
-                              // Restore again to ensure it sticks
-                              requestAnimationFrame(() => {
-                                if (scrollContainer && scrollPositionRef.current) {
-                                  const saved2 = scrollPositionRef.current as any;
-                                  scrollContainer.scrollTop = saved2.top;
-                                  scrollContainer.scrollLeft = saved2.left;
-                                }
-                                restoreCursorPosition();
                                 isUpdatingRef.current = false;
                               });
-                            }
+                            });
                           } else {
-                            restoreCursorPosition();
-                            isUpdatingRef.current = false;
+                            // Not at bottom - restore exact position
+                            scrollContainer.scrollTop = saved.top;
+                            scrollContainer.scrollLeft = saved.left;
+                            
+                            // Restore again to ensure it sticks
+                            requestAnimationFrame(() => {
+                              if (scrollContainer && scrollPositionRef.current) {
+                                const saved2 = scrollPositionRef.current as any;
+                                scrollContainer.scrollTop = saved2.top;
+                                scrollContainer.scrollLeft = saved2.left;
+                              }
+                              restoreCursorPosition();
+                              isUpdatingRef.current = false;
+                            });
                           }
-                        });
-                      }, 0);
+                        } else {
+                          restoreCursorPosition();
+                          isUpdatingRef.current = false;
+                        }
+                      });
                     }}
                   />
                 ) : (
