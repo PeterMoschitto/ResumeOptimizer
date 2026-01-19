@@ -426,11 +426,26 @@ const ResumeEditor: React.FC<ResumeEditorProps> = ({
         return;
       }
 
+      // IMPORTANT: Get the current innerHTML from the DOM (this includes all edits)
+      // React state might not be updated yet, but the DOM has the current content
+      const currentHtmlContent = editableContent.innerHTML;
+      
+      // Update React state with current content to ensure consistency
+      if (parsedResume && parsedResume.sections.length > 0) {
+        const section = parsedResume.sections[0];
+        if (section.id === 'resume-full') {
+          // Update the section with current content
+          section.htmlContent = currentHtmlContent;
+          section.content = editableContent.textContent || '';
+        }
+      }
+
       // Store original styles to restore later
       const originalEditableMaxWidth = editableContent.style.maxWidth;
       const originalEditableOverflow = editableContent.style.overflow;
       const originalEditableWidth = editableContent.style.width;
       const originalEditableHeight = editableContent.style.height;
+      const originalEditablePosition = editableContent.style.position;
       const originalContainerMaxWidth = resumeContainerRef.current.style.maxWidth;
       const originalContainerOverflow = resumeContainerRef.current.style.overflow;
 
@@ -439,6 +454,7 @@ const ResumeEditor: React.FC<ResumeEditorProps> = ({
       editableContent.style.overflow = 'visible';
       editableContent.style.width = 'auto';
       editableContent.style.height = 'auto';
+      editableContent.style.position = 'static'; // Ensure normal flow
       resumeContainerRef.current.style.maxWidth = 'none';
       resumeContainerRef.current.style.overflow = 'visible';
 
@@ -446,21 +462,14 @@ const ResumeEditor: React.FC<ResumeEditorProps> = ({
       void editableContent.offsetHeight;
 
       // Wait for layout to update and ensure content is rendered
-      await new Promise(resolve => setTimeout(resolve, 200));
+      await new Promise(resolve => setTimeout(resolve, 300));
 
       // Get the actual dimensions of the content (including all edits)
-      const contentWidth = Math.max(
-        editableContent.scrollWidth,
-        editableContent.offsetWidth,
-        editableContent.clientWidth
-      );
-      const contentHeight = Math.max(
-        editableContent.scrollHeight,
-        editableContent.offsetHeight,
-        editableContent.clientHeight
-      );
+      // Use scrollHeight/scrollWidth to get full content dimensions
+      const contentWidth = editableContent.scrollWidth || editableContent.offsetWidth || editableContent.clientWidth;
+      const contentHeight = editableContent.scrollHeight || editableContent.offsetHeight || editableContent.clientHeight;
 
-      // Convert HTML to canvas - capture the editable content directly
+      // Convert HTML to canvas - capture the editable content directly with full dimensions
       const canvas = await html2canvas(editableContent, {
         scale: 2,
         useCORS: true,
@@ -471,7 +480,9 @@ const ResumeEditor: React.FC<ResumeEditorProps> = ({
         windowWidth: contentWidth,
         windowHeight: contentHeight,
         allowTaint: true,
-        removeContainer: false
+        removeContainer: false,
+        scrollX: 0,
+        scrollY: 0
       });
 
       // Restore original styles
@@ -479,6 +490,7 @@ const ResumeEditor: React.FC<ResumeEditorProps> = ({
       editableContent.style.overflow = originalEditableOverflow;
       editableContent.style.width = originalEditableWidth;
       editableContent.style.height = originalEditableHeight;
+      editableContent.style.position = originalEditablePosition;
       resumeContainerRef.current.style.maxWidth = originalContainerMaxWidth;
       resumeContainerRef.current.style.overflow = originalContainerOverflow;
 
@@ -496,52 +508,59 @@ const ResumeEditor: React.FC<ResumeEditorProps> = ({
       const imgWidth = pdfWidth;
       const imgHeight = (canvas.height * pdfWidth) / canvas.width;
       
-      // Calculate total number of pages needed (add small buffer to ensure nothing is cut off)
+      // Calculate total number of pages needed - ensure we round up to include all content
       const totalPages = Math.ceil(imgHeight / pdfHeight);
       
-      // Add image across multiple pages
-      let yPosition = 0;
-      
+      // Add image across multiple pages - ensure we capture everything
       for (let page = 0; page < totalPages; page++) {
         if (page > 0) {
           pdf.addPage();
-          yPosition = 0; // Reset for new page
         }
         
-        // Calculate how much of the image fits on this page
+        // Calculate the Y position in the source canvas for this page
+        const sourceY = (page * pdfHeight) * (canvas.height / imgHeight);
         const remainingHeight = imgHeight - (page * pdfHeight);
         const pageImgHeight = Math.min(pdfHeight, remainingHeight);
         
-        // Calculate source coordinates in the canvas
-        const sourceY = (page * pdfHeight) * (canvas.height / imgHeight);
+        // Calculate the source height in pixels for this page
         const sourceHeight = pageImgHeight * (canvas.height / imgHeight);
         
-        // Create a temporary canvas for this page slice
-        const pageCanvas = document.createElement('canvas');
-        pageCanvas.width = canvas.width;
-        pageCanvas.height = Math.ceil(sourceHeight);
-        const pageCtx = pageCanvas.getContext('2d');
+        // Ensure we don't go beyond the canvas height
+        const actualSourceY = Math.min(sourceY, canvas.height - 1);
+        const actualSourceHeight = Math.min(sourceHeight, canvas.height - actualSourceY);
         
-        if (pageCtx && sourceHeight > 0) {
-          // Draw the slice of the image for this page
-          pageCtx.drawImage(
-            canvas,
-            0, Math.floor(sourceY), canvas.width, Math.ceil(sourceHeight), // Source rectangle
-            0, 0, canvas.width, Math.ceil(sourceHeight) // Destination rectangle
-          );
+        if (actualSourceHeight > 0) {
+          // Create a temporary canvas for this page slice
+          const pageCanvas = document.createElement('canvas');
+          pageCanvas.width = canvas.width;
+          pageCanvas.height = Math.ceil(actualSourceHeight);
+          const pageCtx = pageCanvas.getContext('2d');
           
-          // Convert page slice to image data
-          const pageImgData = pageCanvas.toDataURL('image/png');
-          
-          // Add the page slice to PDF
-          pdf.addImage(
-            pageImgData,
-            'PNG',
-            0, // x position (left edge)
-            yPosition, // y position (top of page)
-            imgWidth, // width
-            pageImgHeight // height for this page
-          );
+          if (pageCtx) {
+            // Fill with white background
+            pageCtx.fillStyle = '#ffffff';
+            pageCtx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+            
+            // Draw the slice of the image for this page
+            pageCtx.drawImage(
+              canvas,
+              0, Math.floor(actualSourceY), canvas.width, Math.ceil(actualSourceHeight), // Source rectangle
+              0, 0, canvas.width, Math.ceil(actualSourceHeight) // Destination rectangle
+            );
+            
+            // Convert page slice to image data
+            const pageImgData = pageCanvas.toDataURL('image/png');
+            
+            // Add the page slice to PDF
+            pdf.addImage(
+              pageImgData,
+              'PNG',
+              0, // x position (left edge)
+              0, // y position (top of page)
+              imgWidth, // width
+              pageImgHeight // height for this page
+            );
+          }
         }
       }
 
