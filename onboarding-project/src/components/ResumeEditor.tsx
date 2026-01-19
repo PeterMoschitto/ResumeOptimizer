@@ -415,67 +415,72 @@ const ResumeEditor: React.FC<ResumeEditorProps> = ({
         exportButton.textContent = 'Generating PDF...';
       }
 
-      // Store original styles to restore later
-      const container = resumeContainerRef.current;
-      const originalMaxWidth = container.style.maxWidth;
-      const originalOverflow = container.style.overflow;
-      const originalWidth = container.style.width;
-
-      // Temporarily remove width constraints to capture full content
-      container.style.maxWidth = 'none';
-      container.style.overflow = 'visible';
-      container.style.width = 'auto';
-
-      // Also check for any child elements that might constrain width
-      const editableContent = container.querySelector('.editable-content') as HTMLElement;
-      const originalEditableMaxWidth = editableContent?.style.maxWidth;
-      const originalEditableOverflow = editableContent?.style.overflow;
-      const originalEditableWidth = editableContent?.style.width;
-      
-      if (editableContent) {
-        editableContent.style.maxWidth = 'none';
-        editableContent.style.overflow = 'visible';
-        editableContent.style.width = 'auto';
+      // Find the actual editable content element (this contains the resume with edits)
+      const editableContent = resumeContainerRef.current.querySelector('.editable-content') as HTMLElement;
+      if (!editableContent) {
+        alert('Could not find resume content to export.');
+        if (exportButton) {
+          exportButton.disabled = false;
+          exportButton.textContent = '📄 Export Resume as PDF';
+        }
+        return;
       }
 
-      // Wait for layout to update
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Store original styles to restore later
+      const originalEditableMaxWidth = editableContent.style.maxWidth;
+      const originalEditableOverflow = editableContent.style.overflow;
+      const originalEditableWidth = editableContent.style.width;
+      const originalEditableHeight = editableContent.style.height;
+      const originalContainerMaxWidth = resumeContainerRef.current.style.maxWidth;
+      const originalContainerOverflow = resumeContainerRef.current.style.overflow;
 
-      // Get the actual scroll width to capture full content
-      const scrollWidth = Math.max(
-        container.scrollWidth,
-        editableContent?.scrollWidth || 0,
-        container.offsetWidth
+      // Temporarily remove all constraints to capture full content
+      editableContent.style.maxWidth = 'none';
+      editableContent.style.overflow = 'visible';
+      editableContent.style.width = 'auto';
+      editableContent.style.height = 'auto';
+      resumeContainerRef.current.style.maxWidth = 'none';
+      resumeContainerRef.current.style.overflow = 'visible';
+
+      // Force a reflow to ensure styles are applied
+      editableContent.offsetHeight;
+
+      // Wait for layout to update and ensure content is rendered
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      // Get the actual dimensions of the content (including all edits)
+      const contentWidth = Math.max(
+        editableContent.scrollWidth,
+        editableContent.offsetWidth,
+        editableContent.clientWidth
       );
-      const scrollHeight = Math.max(
-        container.scrollHeight,
-        editableContent?.scrollHeight || 0,
-        container.offsetHeight
+      const contentHeight = Math.max(
+        editableContent.scrollHeight,
+        editableContent.offsetHeight,
+        editableContent.clientHeight
       );
 
-      // Convert HTML to canvas with full width
-      const canvas = await html2canvas(container, {
+      // Convert HTML to canvas - capture the editable content directly
+      const canvas = await html2canvas(editableContent, {
         scale: 2,
         useCORS: true,
         logging: false,
         backgroundColor: '#ffffff',
-        width: scrollWidth,
-        height: scrollHeight,
-        windowWidth: scrollWidth,
-        windowHeight: scrollHeight,
-        allowTaint: true
+        width: contentWidth,
+        height: contentHeight,
+        windowWidth: contentWidth,
+        windowHeight: contentHeight,
+        allowTaint: true,
+        removeContainer: false
       });
 
       // Restore original styles
-      container.style.maxWidth = originalMaxWidth;
-      container.style.overflow = originalOverflow;
-      container.style.width = originalWidth;
-      
-      if (editableContent) {
-        editableContent.style.maxWidth = originalEditableMaxWidth;
-        editableContent.style.overflow = originalEditableOverflow;
-        editableContent.style.width = originalEditableWidth;
-      }
+      editableContent.style.maxWidth = originalEditableMaxWidth;
+      editableContent.style.overflow = originalEditableOverflow;
+      editableContent.style.width = originalEditableWidth;
+      editableContent.style.height = originalEditableHeight;
+      resumeContainerRef.current.style.maxWidth = originalContainerMaxWidth;
+      resumeContainerRef.current.style.overflow = originalContainerOverflow;
 
       // Create PDF
       const pdf = new jsPDF({
@@ -491,49 +496,49 @@ const ResumeEditor: React.FC<ResumeEditorProps> = ({
       const imgWidth = pdfWidth;
       const imgHeight = (canvas.height * pdfWidth) / canvas.width;
       
-      // Calculate total number of pages needed
+      // Calculate total number of pages needed (add small buffer to ensure nothing is cut off)
       const totalPages = Math.ceil(imgHeight / pdfHeight);
       
-      // Convert canvas pixels to PDF mm for slicing
-      const pixelsPerMm = canvas.width / pdfWidth;
-      const pageHeightInPixels = pdfHeight * pixelsPerMm;
+      // Add image across multiple pages
+      let yPosition = 0;
       
-      // Add image across multiple pages by slicing the canvas
       for (let page = 0; page < totalPages; page++) {
         if (page > 0) {
           pdf.addPage();
+          yPosition = 0; // Reset for new page
         }
         
-        // Calculate the source Y position in pixels
-        const sourceY = page * pageHeightInPixels;
-        const sourceHeight = Math.min(pageHeightInPixels, canvas.height - sourceY);
+        // Calculate how much of the image fits on this page
+        const remainingHeight = imgHeight - (page * pdfHeight);
+        const pageImgHeight = Math.min(pdfHeight, remainingHeight);
+        
+        // Calculate source coordinates in the canvas
+        const sourceY = (page * pdfHeight) * (canvas.height / imgHeight);
+        const sourceHeight = pageImgHeight * (canvas.height / imgHeight);
         
         // Create a temporary canvas for this page slice
         const pageCanvas = document.createElement('canvas');
         pageCanvas.width = canvas.width;
-        pageCanvas.height = sourceHeight;
+        pageCanvas.height = Math.ceil(sourceHeight);
         const pageCtx = pageCanvas.getContext('2d');
         
-        if (pageCtx) {
+        if (pageCtx && sourceHeight > 0) {
           // Draw the slice of the image for this page
           pageCtx.drawImage(
             canvas,
-            0, sourceY, canvas.width, sourceHeight, // Source rectangle
-            0, 0, canvas.width, sourceHeight // Destination rectangle
+            0, Math.floor(sourceY), canvas.width, Math.ceil(sourceHeight), // Source rectangle
+            0, 0, canvas.width, Math.ceil(sourceHeight) // Destination rectangle
           );
           
           // Convert page slice to image data
           const pageImgData = pageCanvas.toDataURL('image/png');
-          
-          // Calculate the height in mm for this page
-          const pageImgHeight = (sourceHeight * pdfWidth) / canvas.width;
           
           // Add the page slice to PDF
           pdf.addImage(
             pageImgData,
             'PNG',
             0, // x position (left edge)
-            0, // y position (top of page)
+            yPosition, // y position (top of page)
             imgWidth, // width
             pageImgHeight // height for this page
           );
@@ -555,10 +560,21 @@ const ResumeEditor: React.FC<ResumeEditorProps> = ({
       
       // Make sure to restore styles even on error
       if (resumeContainerRef.current) {
-        const container = resumeContainerRef.current;
-        container.style.maxWidth = '';
-        container.style.overflow = '';
-        container.style.width = '';
+        const editableContent = resumeContainerRef.current.querySelector('.editable-content') as HTMLElement;
+        if (editableContent) {
+          editableContent.style.maxWidth = '';
+          editableContent.style.overflow = '';
+          editableContent.style.width = '';
+          editableContent.style.height = '';
+        }
+        resumeContainerRef.current.style.maxWidth = '';
+        resumeContainerRef.current.style.overflow = '';
+      }
+      
+      const exportButton = document.querySelector('.export-pdf-button') as HTMLButtonElement;
+      if (exportButton) {
+        exportButton.disabled = false;
+        exportButton.textContent = '📄 Export Resume as PDF';
       }
     }
   };
