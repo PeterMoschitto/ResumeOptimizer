@@ -443,7 +443,7 @@ const ResumeEditor: React.FC<ResumeEditorProps> = ({
       resumeContainerRef.current.style.overflow = 'visible';
 
       // Force a reflow to ensure styles are applied
-      editableContent.offsetHeight;
+      void editableContent.offsetHeight;
 
       // Wait for layout to update and ensure content is rendered
       await new Promise(resolve => setTimeout(resolve, 200));
