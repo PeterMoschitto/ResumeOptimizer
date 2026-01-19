@@ -544,28 +544,33 @@ const ResumeEditor: React.FC<ResumeEditorProps> = ({
       const imgWidth = pdfWidth;
       const imgHeight = (canvas.height * pdfWidth) / canvas.width;
       
-      // Calculate total number of pages needed - ensure we round up to include all content
-      const totalPages = Math.ceil(imgHeight / pdfHeight);
+      // Calculate pixels per mm for accurate slicing
+      const pixelsPerMm = canvas.height / imgHeight;
+      const pageHeightInPixels = pdfHeight * pixelsPerMm;
       
-      // Add image across multiple pages - ensure we capture everything
+      // Calculate total number of pages needed - ensure we capture everything
+      const totalPages = Math.ceil(canvas.height / pageHeightInPixels);
+      
+      // Add image across multiple pages - ensure we capture everything including the bottom
       for (let page = 0; page < totalPages; page++) {
         if (page > 0) {
           pdf.addPage();
         }
         
-        // Calculate the Y position in the source canvas for this page
-        const sourceY = (page * pdfHeight) * (canvas.height / imgHeight);
-        const remainingHeight = imgHeight - (page * pdfHeight);
-        const pageImgHeight = Math.min(pdfHeight, remainingHeight);
+        // Calculate the source Y position in pixels for this page
+        const sourceY = page * pageHeightInPixels;
         
-        // Calculate the source height in pixels for this page
-        const sourceHeight = pageImgHeight * (canvas.height / imgHeight);
+        // For the last page, capture everything remaining
+        const isLastPage = page === totalPages - 1;
+        const sourceHeight = isLastPage 
+          ? canvas.height - sourceY  // Capture all remaining pixels on last page
+          : pageHeightInPixels;      // Standard page height for other pages
         
-        // Ensure we don't go beyond the canvas height
-        const actualSourceY = Math.min(sourceY, canvas.height - 1);
-        const actualSourceHeight = Math.min(sourceHeight, canvas.height - actualSourceY);
+        // Ensure we don't go beyond canvas bounds
+        const actualSourceY = Math.max(0, Math.min(sourceY, canvas.height - 1));
+        const actualSourceHeight = Math.max(1, Math.min(sourceHeight, canvas.height - actualSourceY));
         
-        if (actualSourceHeight > 0) {
+        if (actualSourceHeight > 0 && actualSourceY < canvas.height) {
           // Create a temporary canvas for this page slice
           const pageCanvas = document.createElement('canvas');
           pageCanvas.width = canvas.width;
@@ -587,6 +592,9 @@ const ResumeEditor: React.FC<ResumeEditorProps> = ({
             // Convert page slice to image data
             const pageImgData = pageCanvas.toDataURL('image/png');
             
+            // Calculate the height in mm for this page slice
+            const pageImgHeightMm = (actualSourceHeight * pdfWidth) / canvas.width;
+            
             // Add the page slice to PDF
             pdf.addImage(
               pageImgData,
@@ -594,7 +602,7 @@ const ResumeEditor: React.FC<ResumeEditorProps> = ({
               0, // x position (left edge)
               0, // y position (top of page)
               imgWidth, // width
-              pageImgHeight // height for this page
+              pageImgHeightMm // height for this page in mm
             );
           }
         }
