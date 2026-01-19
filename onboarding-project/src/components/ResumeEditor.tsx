@@ -415,13 +415,67 @@ const ResumeEditor: React.FC<ResumeEditorProps> = ({
         exportButton.textContent = 'Generating PDF...';
       }
 
-      // Convert HTML to canvas
-      const canvas = await html2canvas(resumeContainerRef.current, {
+      // Store original styles to restore later
+      const container = resumeContainerRef.current;
+      const originalMaxWidth = container.style.maxWidth;
+      const originalOverflow = container.style.overflow;
+      const originalWidth = container.style.width;
+
+      // Temporarily remove width constraints to capture full content
+      container.style.maxWidth = 'none';
+      container.style.overflow = 'visible';
+      container.style.width = 'auto';
+
+      // Also check for any child elements that might constrain width
+      const editableContent = container.querySelector('.editable-content') as HTMLElement;
+      const originalEditableMaxWidth = editableContent?.style.maxWidth;
+      const originalEditableOverflow = editableContent?.style.overflow;
+      const originalEditableWidth = editableContent?.style.width;
+      
+      if (editableContent) {
+        editableContent.style.maxWidth = 'none';
+        editableContent.style.overflow = 'visible';
+        editableContent.style.width = 'auto';
+      }
+
+      // Wait for layout to update
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Get the actual scroll width to capture full content
+      const scrollWidth = Math.max(
+        container.scrollWidth,
+        editableContent?.scrollWidth || 0,
+        container.offsetWidth
+      );
+      const scrollHeight = Math.max(
+        container.scrollHeight,
+        editableContent?.scrollHeight || 0,
+        container.offsetHeight
+      );
+
+      // Convert HTML to canvas with full width
+      const canvas = await html2canvas(container, {
         scale: 2,
         useCORS: true,
         logging: false,
-        backgroundColor: '#ffffff'
+        backgroundColor: '#ffffff',
+        width: scrollWidth,
+        height: scrollHeight,
+        windowWidth: scrollWidth,
+        windowHeight: scrollHeight,
+        allowTaint: true
       });
+
+      // Restore original styles
+      container.style.maxWidth = originalMaxWidth;
+      container.style.overflow = originalOverflow;
+      container.style.width = originalWidth;
+      
+      if (editableContent) {
+        editableContent.style.maxWidth = originalEditableMaxWidth;
+        editableContent.style.overflow = originalEditableOverflow;
+        editableContent.style.width = originalEditableWidth;
+      }
 
       // Create PDF
       const imgData = canvas.toDataURL('image/png');
@@ -462,6 +516,14 @@ const ResumeEditor: React.FC<ResumeEditorProps> = ({
     } catch (error) {
       console.error('Error exporting PDF:', error);
       alert('Failed to export PDF. Please try again.');
+      
+      // Make sure to restore styles even on error
+      if (resumeContainerRef.current) {
+        const container = resumeContainerRef.current;
+        container.style.maxWidth = '';
+        container.style.overflow = '';
+        container.style.width = '';
+      }
     }
   };
 
