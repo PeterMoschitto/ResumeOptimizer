@@ -126,6 +126,7 @@ export const renderPDFVisually = async (
 
     // Normalize left padding so content is left-aligned instead of centered
     const minX = Math.min(...lines.filter(l => l.length > 0).map(l => l[0]?.x || 0));
+    const leftPadding = Math.max(minX * 0.1, 8); // small safety padding to avoid clipping
     
     for (const line of lines) {
       if (line.length === 0) continue;
@@ -189,7 +190,7 @@ export const renderPDFVisually = async (
       // Create line div with absolute positioning to match PDF exactly
       // Adjust Y position to remove top padding
       // Scale font sizes and positions for better visibility
-      const adjustedX = Math.max((lineX - minX) * scale, 0);
+      const adjustedX = Math.max((lineX - minX) * scale + leftPadding, 0);
       const adjustedFontSize = avgFontSize * scale;
       const lineStyles: string[] = [
         `display: block`,
