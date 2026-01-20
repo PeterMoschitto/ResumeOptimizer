@@ -783,7 +783,7 @@ const ResumeEditor: React.FC<ResumeEditorProps> = ({
                     style={section.style}
                     onKeyDown={(e) => {
                       // Save cursor position before any key action (especially delete/backspace)
-                      if (e.key === 'Backspace' || e.key === 'Delete' || e.key === 'Tab') {
+                      if (e.key === 'Backspace' || e.key === 'Delete' || e.key === 'Tab' || e.key === 'Enter') {
                         saveCursorPosition();
                       }
                       
@@ -791,6 +791,13 @@ const ResumeEditor: React.FC<ResumeEditorProps> = ({
                       if (e.key === 'Tab') {
                         e.preventDefault();
                         document.execCommand('insertText', false, '    '); // 4 spaces instead of tab
+                        saveCursorPosition();
+                      }
+                      
+                      // Make Enter behave like a normal newline in contentEditable
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        document.execCommand('insertHTML', false, '<br>');
                         saveCursorPosition();
                       }
                     }}

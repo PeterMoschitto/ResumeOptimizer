@@ -198,10 +198,12 @@ export const renderPDFVisually = async (
         `font-size: ${adjustedFontSize}px`
       ];
       
-      // Add underline for headers
-      if (isHeader && avgFontSize > 12) {
-        lineStyles.push('border-bottom: 1.5px solid #000');
-        lineStyles.push('padding-bottom: 2px');
+      // Emphasize headers (bold + underline) to match resume formatting
+      if (isHeader) {
+        lineStyles.push('font-weight: 700');
+        lineStyles.push('text-decoration: underline');
+        lineStyles.push('text-decoration-thickness: 1.5px');
+        lineStyles.push('text-underline-offset: 3px');
       }
       
       // Right align if on right side (for contact info)
