@@ -85,10 +85,10 @@ export const renderPDFVisually = async (
     const lines: TextItem[][] = [];
     let currentLine: TextItem[] = [];
     let currentY = textItems[0]?.y || 0;
-    const lineTolerance = 3;
     
     for (const item of textItems) {
-      if (Math.abs(item.y - currentY) <= lineTolerance) {
+      const dynamicTolerance = Math.max(2, (item.fontSize || 10) * 0.2);
+      if (Math.abs(item.y - currentY) <= dynamicTolerance) {
         currentLine.push(item);
       } else {
         if (currentLine.length > 0) {
@@ -131,11 +131,15 @@ export const renderPDFVisually = async (
       const lineY = firstItem.y;
       const lineX = firstItem.x;
       const avgFontSize = line.reduce((sum, item) => sum + item.fontSize, 0) / line.length;
+      const lineText = line.map(item => item.str).join('').trim();
+      const isSectionTitle =
+        /^(education|experience|work experience|skills|projects|personal|certifications|awards|leadership|summary)$/i.test(lineText) ||
+        /^(education|experience|skills|projects|personal|certifications|awards|leadership|summary)\b/i.test(lineText);
       
       // Detect section header
-      const isHeader = line.some(item => item.isBold) && 
-                       (line.every(item => !item.str || item.str === item.str.toUpperCase()) || 
-                        avgFontSize > 14);
+      const isHeader = (line.some(item => item.isBold) && avgFontSize >= 12) ||
+                       isSectionTitle ||
+                       (line.every(item => !item.str || item.str === item.str.toUpperCase()) && avgFontSize >= 11);
       
       // Build line content
       let lineContent = '';
@@ -190,7 +194,7 @@ export const renderPDFVisually = async (
         `top: ${adjustedY}px`,
         `left: ${adjustedX}px`,
         `white-space: pre`,
-        `line-height: ${adjustedFontSize * 1.25}px`,
+        `line-height: ${adjustedFontSize * 1.3}px`,
         `font-size: ${adjustedFontSize}px`
       ];
       
