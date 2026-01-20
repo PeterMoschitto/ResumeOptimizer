@@ -482,6 +482,9 @@ const ResumeEditor: React.FC<ResumeEditorProps> = ({
       const originalEditableWidth = editableContent.style.width;
       const originalEditableHeight = editableContent.style.height;
       const originalEditablePosition = editableContent.style.position;
+      const originalEditablePaddingBottom = editableContent.style.paddingBottom;
+      const originalEditableScrollTop = editableContent.scrollTop;
+      const originalEditableScrollLeft = editableContent.scrollLeft;
       const originalContainerMaxWidth = resumeContainerRef.current.style.maxWidth;
       const originalContainerOverflow = resumeContainerRef.current.style.overflow;
 
@@ -491,8 +494,11 @@ const ResumeEditor: React.FC<ResumeEditorProps> = ({
       editableContent.style.width = 'auto';
       editableContent.style.height = 'auto';
       editableContent.style.position = 'static'; // Ensure normal flow
+      editableContent.style.paddingBottom = '40px'; // Extra space to avoid bottom cutoff
       resumeContainerRef.current.style.maxWidth = 'none';
       resumeContainerRef.current.style.overflow = 'visible';
+      editableContent.scrollTop = 0;
+      editableContent.scrollLeft = 0;
 
       // Force a reflow to ensure styles are applied
       void editableContent.offsetHeight;
@@ -527,8 +533,11 @@ const ResumeEditor: React.FC<ResumeEditorProps> = ({
       editableContent.style.width = originalEditableWidth;
       editableContent.style.height = originalEditableHeight;
       editableContent.style.position = originalEditablePosition;
+      editableContent.style.paddingBottom = originalEditablePaddingBottom;
       resumeContainerRef.current.style.maxWidth = originalContainerMaxWidth;
       resumeContainerRef.current.style.overflow = originalContainerOverflow;
+      editableContent.scrollTop = originalEditableScrollTop;
+      editableContent.scrollLeft = originalEditableScrollLeft;
 
       // Create PDF
       const pdf = new jsPDF({
@@ -549,7 +558,7 @@ const ResumeEditor: React.FC<ResumeEditorProps> = ({
       const pageHeightInPixels = pdfHeight * pixelsPerMm;
       
       // Calculate total number of pages needed - ensure we capture everything
-      const totalPages = Math.ceil(canvas.height / pageHeightInPixels);
+      const totalPages = Math.ceil((canvas.height + 2) / pageHeightInPixels);
       
       // Add image across multiple pages - ensure we capture everything including the bottom
       for (let page = 0; page < totalPages; page++) {
