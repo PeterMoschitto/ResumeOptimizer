@@ -41,10 +41,15 @@ export const renderPDFVisually = async (
       const transform = item.transform || [1, 0, 0, 1, 0, 0];
       const fontSize = Math.abs(transform[0]) || item.height || 12;
       const fontName = (item.fontName || 'Helvetica').toString();
-      const isBold = fontName.toLowerCase().includes('bold') || 
-                     fontName.toLowerCase().includes('black');
-      const isItalic = fontName.toLowerCase().includes('italic') || 
-                       fontName.toLowerCase().includes('oblique');
+      const fontNameLower = fontName.toLowerCase();
+      const isBold = fontNameLower.includes('bold') ||
+                     fontNameLower.includes('black') ||
+                     fontNameLower.includes('heavy') ||
+                     fontNameLower.includes('semibold') ||
+                     fontNameLower.includes('demibold') ||
+                     fontNameLower.includes('medium');
+      const isItalic = fontNameLower.includes('italic') ||
+                       fontNameLower.includes('oblique');
       
       // PDF coordinates: (0,0) is bottom-left, convert to top-left
       const x = transform[4] || 0;
@@ -128,6 +133,7 @@ export const renderPDFVisually = async (
       // Build line content
       let lineContent = '';
       let lastX = lineX;
+      const avgCharWidth = Math.max(avgFontSize * 0.55, 3);
       
       for (let i = 0; i < line.length; i++) {
         const item = line[i];
@@ -135,20 +141,15 @@ export const renderPDFVisually = async (
         // Add spacing
         if (i > 0) {
           const gap = item.x - lastX;
-          if (gap > 30) {
-            const spaceCount = Math.floor(gap / 6);
-            lineContent += '&nbsp;'.repeat(Math.min(spaceCount, 50));
-          } else if (gap > 5) {
-            const spaceCount = Math.floor(gap / 6);
-            lineContent += '&nbsp;'.repeat(Math.min(spaceCount, 20));
-          } else if (gap > 1) {
-            lineContent += '&nbsp;';
+          if (gap > avgCharWidth * 0.7) {
+            const spaceCount = Math.max(1, Math.round(gap / avgCharWidth));
+            lineContent += '&nbsp;'.repeat(Math.min(spaceCount, 80));
           }
         }
         
         // Add text with formatting - scale font sizes
         const styles: string[] = [];
-        if (item.isBold) styles.push('font-weight: bold');
+        if (item.isBold) styles.push('font-weight: 700');
         if (item.isItalic) styles.push('font-style: italic');
         if (item.fontSize) {
           const scaledFontSize = item.fontSize * scale;
