@@ -34,21 +34,28 @@ export const renderPDFVisually = async (
     const page = await pdf.getPage(i);
     const viewport = page.getViewport({ scale: 2.0 }); // Higher scale for better quality
     const textContent = await page.getTextContent();
+    const styleMap = (textContent as any).styles || {};
     
     // Extract all text items with positions
     const textItems: TextItem[] = [];
     for (const item of textContent.items as any[]) {
+      const style = styleMap[item.fontName] || {};
       const transform = item.transform || [1, 0, 0, 1, 0, 0];
       const fontSize = Math.abs(transform[0]) || item.height || 12;
-      const fontName = (item.fontName || 'Helvetica').toString();
+      const fontName = (item.fontName || style.fontFamily || 'Helvetica').toString();
       const fontNameLower = fontName.toLowerCase();
-      const isBold = fontNameLower.includes('bold') ||
+      const fontWeight = style.fontWeight || '';
+      const fontStyle = style.fontStyle || '';
+      const isBold = (typeof fontWeight === 'number' && fontWeight >= 600) ||
+                     (typeof fontWeight === 'string' && fontWeight.toLowerCase().includes('bold')) ||
+                     fontNameLower.includes('bold') ||
                      fontNameLower.includes('black') ||
                      fontNameLower.includes('heavy') ||
                      fontNameLower.includes('semibold') ||
                      fontNameLower.includes('demibold') ||
                      fontNameLower.includes('medium');
-      const isItalic = fontNameLower.includes('italic') ||
+      const isItalic = (typeof fontStyle === 'string' && fontStyle.toLowerCase().includes('italic')) ||
+                       fontNameLower.includes('italic') ||
                        fontNameLower.includes('oblique');
       
       // PDF coordinates: (0,0) is bottom-left, convert to top-left
@@ -114,8 +121,8 @@ export const renderPDFVisually = async (
     const adjustedHeight = viewport.height - topmostY;
     const scaledHeight = adjustedHeight * scale;
     
-    pageHTML.push(`<div class="pdf-page-wrapper" style="position: relative; width: ${scaledWidth}px; min-height: ${scaledHeight}px; margin: 0 auto; background: white; transform: scale(${scale}); transform-origin: top left;">`);
-    pageHTML.push(`<div class="pdf-page-inner" style="position: relative; width: ${viewport.width}px; height: ${adjustedHeight}px; padding-top: 0; margin-top: 0; transform: scale(${scale}); transform-origin: top left;">`);
+    pageHTML.push(`<div class="pdf-page-wrapper" style="position: relative; width: ${scaledWidth}px; min-height: ${scaledHeight}px; margin: 0 auto; background: white;">`);
+    pageHTML.push(`<div class="pdf-page-inner" style="position: relative; width: ${viewport.width}px; height: ${adjustedHeight}px; padding-top: 0; margin-top: 0;">`);
     
     for (const line of lines) {
       if (line.length === 0) continue;
@@ -183,7 +190,7 @@ export const renderPDFVisually = async (
         `top: ${adjustedY}px`,
         `left: ${adjustedX}px`,
         `white-space: pre`,
-        `line-height: ${adjustedFontSize * 1.2}px`,
+        `line-height: ${adjustedFontSize * 1.25}px`,
         `font-size: ${adjustedFontSize}px`
       ];
       
