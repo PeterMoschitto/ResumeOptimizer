@@ -282,7 +282,7 @@
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   overflow: visible;
   padding-top: 0;
-  zoom: 1.1; /* Additional scaling for better visibility */
+  zoom: 1; /* Keep 1:1 scale for accurate editing */
 }
 
 .pdf-page-inner {

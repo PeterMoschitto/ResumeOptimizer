@@ -115,14 +115,14 @@ export const renderPDFVisually = async (
       ? Math.min(...lines.filter(line => line.length > 0).map(line => line[0]?.y || Infinity))
       : 0;
     
-    // Scale to readable size - minimal scaling
-    const scale = 1.1; // Fixed scale of 1.1x (minimal increase from original)
+    // Normal-flow rendering for editing (no absolute positioning)
+    const scale = 1.0;
     const scaledWidth = viewport.width * scale;
     const adjustedHeight = viewport.height - topmostY;
     const scaledHeight = adjustedHeight * scale;
     
     pageHTML.push(`<div class="pdf-page-wrapper" style="position: relative; width: ${scaledWidth}px; min-height: ${scaledHeight}px; margin: 0 auto; background: white;">`);
-    pageHTML.push(`<div class="pdf-page-inner" style="position: relative; width: ${viewport.width}px; height: ${adjustedHeight}px; padding-top: 0; margin-top: 0;">`);
+    pageHTML.push(`<div class="pdf-page-inner pdf-flow" style="position: relative; width: ${viewport.width}px; min-height: ${adjustedHeight}px; padding-top: 0; margin-top: 0;">`);
     
     for (const line of lines) {
       if (line.length === 0) continue;
@@ -186,15 +186,13 @@ export const renderPDFVisually = async (
       // Create line div with absolute positioning to match PDF exactly
       // Adjust Y position to remove top padding
       // Scale font sizes and positions for better visibility
-      const adjustedY = (lineY - topmostY) * scale;
       const adjustedX = lineX * scale;
       const adjustedFontSize = avgFontSize * scale;
       const lineStyles: string[] = [
-        `position: absolute`,
-        `top: ${adjustedY}px`,
-        `left: ${adjustedX}px`,
+        `display: block`,
+        `padding-left: ${Math.max(adjustedX, 0)}px`,
         `white-space: pre`,
-        `line-height: ${adjustedFontSize * 1.3}px`,
+        `line-height: ${adjustedFontSize * 1.25}px`,
         `font-size: ${adjustedFontSize}px`
       ];
       
@@ -208,10 +206,6 @@ export const renderPDFVisually = async (
       
       // Right align if on right side (for contact info)
       if (lineX > viewport.width * 0.6) {
-        const lineWidth = line.reduce((sum, item) => sum + item.width, 0);
-        const scaledRight = (viewport.width - (lineX + lineWidth)) * scale;
-        lineStyles.push(`right: ${scaledRight}px`);
-        lineStyles.push('left: auto');
         lineStyles.push('text-align: right');
       }
       

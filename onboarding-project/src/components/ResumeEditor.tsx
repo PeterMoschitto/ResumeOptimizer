@@ -405,65 +405,6 @@ const ResumeEditor: React.FC<ResumeEditorProps> = ({
     }, 0);
   };
 
-  // Custom Enter handling for PDF-layout lines (absolute positioned)
-  const insertNewLineForPdfLayout = (editableElement: HTMLDivElement): boolean => {
-    const selection = window.getSelection();
-    if (!selection || selection.rangeCount === 0) return false;
-
-    const range = selection.getRangeAt(0);
-    const anchorNode = selection.anchorNode as Node | null;
-    if (!anchorNode) return false;
-
-    const lineEl = (anchorNode as HTMLElement).closest?.('.pdf-line') as HTMLDivElement | null;
-    if (!lineEl || !lineEl.parentElement) return false;
-
-    const computedLineStyle = window.getComputedStyle(lineEl);
-    const lineHeight = parseFloat(computedLineStyle.lineHeight || '') ||
-      (parseFloat(computedLineStyle.fontSize || '14') * 1.3);
-
-    const currentTop = parseFloat(lineEl.style.top || computedLineStyle.top || '0');
-    const nextTop = currentTop + lineHeight;
-
-    // Split content at cursor: trailing content goes to new line
-    const trailingRange = range.cloneRange();
-    trailingRange.selectNodeContents(lineEl);
-    trailingRange.setStart(range.endContainer, range.endOffset);
-    const trailingContents = trailingRange.extractContents();
-
-    const newLine = document.createElement('div');
-    newLine.className = lineEl.className;
-    newLine.style.cssText = lineEl.style.cssText;
-    newLine.style.top = `${nextTop}px`;
-
-    if (trailingContents.childNodes.length === 0) {
-      newLine.innerHTML = '&nbsp;';
-    } else {
-      newLine.appendChild(trailingContents);
-    }
-
-    lineEl.parentElement.insertBefore(newLine, lineEl.nextSibling);
-
-    // Shift subsequent lines down by one lineHeight
-    const allLines = Array.from(lineEl.parentElement.querySelectorAll('.pdf-line')) as HTMLDivElement[];
-    for (const l of allLines) {
-      if (l === lineEl || l === newLine) continue;
-      const topVal = parseFloat(l.style.top || window.getComputedStyle(l).top || '0');
-      if (topVal >= nextTop) {
-        l.style.top = `${topVal + lineHeight}px`;
-      }
-    }
-
-    // Move cursor to start of new line
-    const newRange = document.createRange();
-    if (newLine.firstChild) {
-      newRange.setStart(newLine.firstChild, 0);
-      newRange.setEnd(newLine.firstChild, 0);
-      selection.removeAllRanges();
-      selection.addRange(newRange);
-    }
-
-    return true;
-  };
 
   // Handle improvement selection
   const handleImprovementClick = (improvement: PrioritizedImprovement) => {
@@ -843,7 +784,7 @@ const ResumeEditor: React.FC<ResumeEditorProps> = ({
                     style={section.style}
                     onKeyDown={(e) => {
                       // Save cursor position before any key action (especially delete/backspace)
-                      if (e.key === 'Backspace' || e.key === 'Delete' || e.key === 'Tab' || e.key === 'Enter') {
+                      if (e.key === 'Backspace' || e.key === 'Delete' || e.key === 'Tab') {
                         saveCursorPosition();
                       }
                       
@@ -852,20 +793,6 @@ const ResumeEditor: React.FC<ResumeEditorProps> = ({
                         e.preventDefault();
                         document.execCommand('insertText', false, '    '); // 4 spaces instead of tab
                         saveCursorPosition();
-                      }
-                      
-                      // Make Enter behave like a normal newline in contentEditable
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        const didInsert = insertNewLineForPdfLayout(e.currentTarget as HTMLDivElement);
-                        if (!didInsert) {
-                          document.execCommand('insertLineBreak');
-                        }
-                        saveCursorPosition();
-                        // Sync state after manual DOM manipulation
-                        const htmlContent = (e.currentTarget as HTMLDivElement).innerHTML;
-                        const textContent = (e.currentTarget as HTMLDivElement).textContent || '';
-                        handleSectionChange(section.id, textContent, htmlContent);
                       }
                     }}
                     onMouseUp={() => {
