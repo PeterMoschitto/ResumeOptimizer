@@ -107,7 +107,7 @@ export const renderPDFVisually = async (
     // Reverse to get top-to-bottom order
     lines.reverse();
     
-    // Build HTML with absolute positioning to preserve exact layout
+    // Build HTML with line-flow layout for editing
     const pageHTML: string[] = [];
     
     // Find the topmost Y position to eliminate top padding (calculate before loop)
@@ -123,6 +123,9 @@ export const renderPDFVisually = async (
     
     pageHTML.push(`<div class="pdf-page-wrapper" style="position: relative; width: ${scaledWidth}px; min-height: ${scaledHeight}px; margin: 0 auto; background: white;">`);
     pageHTML.push(`<div class="pdf-page-inner pdf-flow" style="position: relative; width: ${viewport.width}px; min-height: ${adjustedHeight}px; padding-top: 0; margin-top: 0;">`);
+
+    // Normalize left padding so content is left-aligned instead of centered
+    const minX = Math.min(...lines.filter(l => l.length > 0).map(l => l[0]?.x || 0));
     
     for (const line of lines) {
       if (line.length === 0) continue;
@@ -186,7 +189,7 @@ export const renderPDFVisually = async (
       // Create line div with absolute positioning to match PDF exactly
       // Adjust Y position to remove top padding
       // Scale font sizes and positions for better visibility
-      const adjustedX = lineX * scale;
+      const adjustedX = Math.max((lineX - minX) * scale, 0);
       const adjustedFontSize = avgFontSize * scale;
       const lineStyles: string[] = [
         `display: block`,
@@ -207,6 +210,8 @@ export const renderPDFVisually = async (
       // Right align if on right side (for contact info)
       if (lineX > viewport.width * 0.6) {
         lineStyles.push('text-align: right');
+        lineStyles.push('width: 100%');
+        lineStyles.push('padding-left: 0');
       }
       
       pageHTML.push(`<div class="pdf-line" style="${lineStyles.join('; ')}">${lineContent}</div>`);

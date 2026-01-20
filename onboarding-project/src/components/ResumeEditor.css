@@ -292,6 +292,11 @@
   margin-top: 0;
 }
 
+/* Flow layout for editable PDF text */
+.pdf-flow {
+  text-align: left;
+}
+
 /* PDF lines - positioned exactly as in PDF */
 .pdf-line {
   font-family: 'Times New Roman', 'Georgia', serif;
