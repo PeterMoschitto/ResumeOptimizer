@@ -59,12 +59,13 @@ export const handleAPIError = (error: any): ResumeAnalysisError => {
     });
   }
 
-  // Handle network errors
+  // Handle network errors (fetch failed: offline, wrong URL, or backend not running)
   if (error.name === 'TypeError' && error.message.includes('fetch')) {
     return new ResumeAnalysisError({
       message: 'Network error',
       code: 'NETWORK_ERROR',
-      userFriendly: 'Network error. Please check your internet connection.'
+      userFriendly:
+        'Could not reach the API server. Start the backend (port 5001 by default), check REACT_APP_API_URL, or verify your connection.'
     });
   }
 
